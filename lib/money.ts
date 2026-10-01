@@ -133,14 +133,15 @@ export async function computeMoneyView(sb: SupabaseClient<any, any, any>, now = 
   const yesterday = addDays(today, -1);
   const fetchFrom = iso(new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth() - 1, 1)));
 
-  const [accountsRes, propsRes, manualRes, snapsRes, latestTxRes] = await Promise.all([
+  const [accountsRes, propsRes, manualRes, snapsRes, latestTxRes, itemsRes] = await Promise.all([
     sb.from("plaid_accounts").select("account_id,account_name,mask,account_type,account_subtype,current_balance,limit_balance,last_updated"),
     sb.from("properties").select("address,current_value,debt_balance,debt_in_plaid,last_updated").eq("client_id", CLIENT_ID),
     sb.from("investment_accounts").select("account_name,current_balance,in_plaid").eq("client_id", CLIENT_ID),
     sb.from("net_worth_snapshots").select("snapshot_date,net_worth,cash_available,total_debt").eq("client_id", CLIENT_ID).order("snapshot_date"),
     sb.from("transactions").select("date").order("date", { ascending: false }).limit(1),
+    sb.from("plaid_tokens").select("item_id", { count: "exact", head: true }),
   ]);
-  for (const r of [accountsRes, propsRes, manualRes, snapsRes, latestTxRes]) if (r.error) throw new Error(r.error.message);
+  for (const r of [accountsRes, propsRes, manualRes, snapsRes, latestTxRes, itemsRes]) if (r.error) throw new Error(r.error.message);
 
   // Spend rows: page past PostgREST's 1000-row cap.
   const rows: SpendRow[] = [];
@@ -207,6 +208,8 @@ export async function computeMoneyView(sb: SupabaseClient<any, any, any>, now = 
       propertyValuesAsOf,
     },
     duplicateAccountsHidden: dupIds.size,
+    linkedBanks: itemsRes.count ?? 0,
+    accountNames: accounts.map((a) => `${a.account_name ?? "Account"}${a.mask ? ` •${a.mask}` : ""}`).sort(),
   };
 }
 

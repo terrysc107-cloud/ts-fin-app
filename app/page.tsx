@@ -5,6 +5,7 @@ import { getMoneyView, type MoneyView } from "@/lib/finance";
 import { getHq, type Hq } from "@/lib/hq";
 import { NetWorthTrend } from "@/components/money/NetWorthTrend";
 import { HqSections } from "@/components/money/HqSections";
+import { ConnectBank } from "@/components/money/ConnectBank";
 
 export const dynamic = "force-dynamic";
 
@@ -146,6 +147,8 @@ function MoneySection({ v }: { v: MoneyView }) {
           Spending details <ArrowRight size={16} strokeWidth={2} />
         </Link>
       </p>
+
+      <ConnectBank linkedBanks={v.linkedBanks} accountNames={v.accountNames} />
     </>
   );
 }
