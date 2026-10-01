@@ -113,7 +113,6 @@ Be direct. Numbers-anchored. No generic advice. Use exact figures from the data.
     // Save to ai_insights (best effort — don't fail the response if this errors)
     try {
       await supabase
-        .schema("north_star")
         .from("ai_insights")
         .insert({
           client_id: CLIENT_ID,

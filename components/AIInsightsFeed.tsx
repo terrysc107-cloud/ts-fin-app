@@ -399,7 +399,6 @@ export default function AIInsightsFeed() {
     try {
       const supabase = createBrowserClient();
       const { data, error } = await supabase
-        .schema('north_star')
         .from('ai_insights')
         .select('*')
         .eq('client_id', CLIENT_ID)

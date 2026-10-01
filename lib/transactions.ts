@@ -9,6 +9,11 @@ import {
 
 const APPLE_CASH_FILTER = "apple cash sent";
 
+// Money moving between Terry's own accounts (and card/loan paydowns) is not income
+// or spending. Same rule as Founder OS finance_summary.is_spend, using Plaid's
+// categories because categorized_transactions only reaches back ~45 days.
+const NOT_CASH_FLOW = "(TRANSFER_IN,TRANSFER_OUT,LOAN_PAYMENTS,LOAN_DISBURSEMENTS)";
+
 // ─── Raw Queries (server-side, pass in supabase client) ──────────────────────
 
 // Using a structural duck-type interface so this works with both
@@ -30,6 +35,7 @@ export async function fetchTransactions(
     .gte("date", startDate)
     .lte("date", endDate)
     .not("name", "ilike", `%${APPLE_CASH_FILTER}%`)
+    .not("category_primary", "in", NOT_CASH_FLOW)
     .order("date", { ascending: false });
 
   if (error) {

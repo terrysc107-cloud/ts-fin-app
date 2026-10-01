@@ -189,13 +189,11 @@ export default function BusinessIncome() {
       const supabase = createBrowserClient();
       const [streamsResult, goalsResult] = await Promise.all([
         supabase
-          .schema('north_star')
           .from('income_streams')
           .select('id, client_id, month_period, source, amount, notes')
           .eq('client_id', CLIENT_ID)
           .order('month_period', { ascending: true }),
         supabase
-          .schema('north_star')
           .from('goals')
           .select('*')
           .eq('client_id', CLIENT_ID)

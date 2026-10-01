@@ -30,19 +30,16 @@ export async function POST(request: NextRequest) {
     const [contextResult, netWorthResult, goalsResult, txResult] =
       await Promise.all([
         supabase
-          .schema("north_star")
           .from("context_store")
           .select("context_key, context_value")
           .eq("client_id", CLIENT_ID),
         supabase
-          .schema("north_star")
           .from("net_worth_snapshots")
           .select("*")
           .eq("client_id", CLIENT_ID)
           .order("snapshot_date", { ascending: false })
           .limit(1),
         supabase
-          .schema("north_star")
           .from("goals")
           .select("*")
           .eq("client_id", CLIENT_ID)
@@ -109,7 +106,6 @@ ${txSummary}
 
     // Log to ai_insights
     await supabase
-      .schema("north_star")
       .from("ai_insights")
       .insert({
         client_id: CLIENT_ID,

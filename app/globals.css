@@ -141,3 +141,42 @@
     border-color: var(--border);
   }
 }
+
+/* ── Money home (app/page.tsx): warm-depth theme, follows the phone's light/dark setting ── */
+.money {
+  --m-bg: #eef1f4;
+  --m-card: #ffffff;
+  --m-ink: #15181d;
+  --m-muted: #5d6673;
+  --m-line: #e1e5ea;
+  --m-accent: #0e8a62;
+  --m-accent-soft: #e3f4ec;
+  --m-warn: #b45309;
+  --m-warn-soft: #fdf0e1;
+  --m-alert: #be123c;
+  --m-alert-soft: #fde7ec;
+  --m-shadow: 0 1px 2px rgb(30 41 59 / 0.06), 0 8px 24px -12px rgb(30 41 59 / 0.18);
+  background: var(--m-bg);
+  color: var(--m-ink);
+}
+@media (prefers-color-scheme: dark) {
+  .money {
+    --m-bg: #0f1215;
+    --m-card: #181c21;
+    --m-ink: #eef1f4;
+    --m-muted: #9aa4b1;
+    --m-line: #262c33;
+    --m-accent: #34c494;
+    --m-accent-soft: #12352a;
+    --m-warn: #f2a65a;
+    --m-warn-soft: #3a2a17;
+    --m-alert: #f47a92;
+    --m-alert-soft: #3d1a22;
+    --m-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  }
+}
+.money-card {
+  background: var(--m-card);
+  border-radius: 20px;
+  box-shadow: var(--m-shadow);
+}

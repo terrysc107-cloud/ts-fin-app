@@ -33,3 +33,5 @@ Thumbs.db
 .claude-flow/logs/
 .claude-flow/neural/
 tsconfig.tsbuildinfo
+.vercel
+.env*.local

@@ -140,12 +140,10 @@ export default function RealEstateCommand() {
 
       const [propResult, rentResult] = await Promise.all([
         supabase
-          .schema('north_star')
           .from('properties')
           .select('*')
           .eq('client_id', CLIENT_ID),
         supabase
-          .schema('north_star')
           .from('income_streams')
           .select('month_period, amount')
           .eq('client_id', CLIENT_ID)

@@ -1,22 +1,51 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+import type { DbQuery, Op } from "@/lib/db-proxy";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-// Use globalThis so the singleton survives Next.js chunk-splitting in the browser
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const g = globalThis as typeof globalThis & { __sbClient?: SupabaseClient<any, "public", any> };
+type Result = { data: any; error: { message: string } | null }; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /**
- * Browser-safe Supabase client using the anon key.
- * Returns a singleton to avoid multiple GoTrueClient instances.
+ * Browser "client": a read-only query builder that records the chain
+ * (.from().select().eq()...) and replays it server-side via /api/db.
+ * The finance tables are service-role only, so the browser never queries Supabase.
+ * `.schema()` is accepted and ignored: everything now lives in `public`.
  */
+function browserQuery(table: string) {
+  const ops: Op[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const builder: any = new Proxy(
+    {},
+    {
+      get(_t, prop: string) {
+        if (prop === "then") {
+          return (resolve: (r: Result) => unknown, reject: (e: unknown) => unknown) =>
+            fetch("/api/db", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ table, ops } satisfies DbQuery),
+            })
+              .then((r) => r.json() as Promise<Result>)
+              .then(resolve, reject);
+        }
+        return (...args: unknown[]) => {
+          ops.push({ op: prop, args });
+          return builder;
+        };
+      },
+    }
+  );
+  return builder;
+}
+
+const browserClient = {
+  from: browserQuery,
+  schema: () => ({ from: browserQuery }),
+};
+
 export function createBrowserClient() {
-  if (!g.__sbClient) {
-    g.__sbClient = createClient(supabaseUrl, supabaseAnonKey);
-  }
-  return g.__sbClient;
+  return browserClient;
 }
 
 /**
