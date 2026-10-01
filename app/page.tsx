@@ -2,7 +2,9 @@ import Link from "next/link";
 import { Outfit } from "next/font/google";
 import { ArrowRight, CreditCard, Landmark, Wallet, CalendarDays, House } from "lucide-react";
 import { getMoneyView, type MoneyView } from "@/lib/finance";
+import { getHq, type Hq } from "@/lib/hq";
 import { NetWorthTrend } from "@/components/money/NetWorthTrend";
+import { HqSections } from "@/components/money/HqSections";
 
 export const dynamic = "force-dynamic";
 
@@ -44,25 +46,24 @@ function UsageBar({ p }: { p: number | null }) {
   );
 }
 
-function Home({ v }: { v: MoneyView }) {
+function MoneySection({ v }: { v: MoneyView }) {
   const trend = [...v.snapshots.filter((s) => s.date !== v.asOf), { date: v.asOf, netWorth: v.netWorth }];
   const monthDiff = v.mtdSpend - v.priorSamePointSpend;
   const lt = tone(v.locUtilization);
   const ct = tone(v.cardUtilization);
 
-  return (
-    <div className="mx-auto max-w-xl px-4 pb-16 pt-8 md:max-w-3xl">
-      <header className="mb-6 flex items-end justify-between">
-        <div>
-          <p className="text-sm text-[var(--m-muted)]">Where you stand</p>
-          <h1 className="text-xl font-semibold">Your money, today</h1>
-        </div>
-        <p className="text-sm text-[var(--m-muted)]">{day(v.asOf)}</p>
-      </header>
+  const since = v.previous ? v.netWorth - v.previous.netWorth : null;
 
+  return (
+    <>
       <section className="money-card p-6">
         <h2 className="text-sm text-[var(--m-muted)]">Net worth</h2>
         <p className="mt-1 text-5xl font-semibold tracking-tight tabular-nums">{usd(v.netWorth)}</p>
+        {since !== null && v.previous && (
+          <p className="mt-1 text-sm" style={{ color: since >= 0 ? "var(--m-accent)" : "var(--m-warn)" }}>
+            {since >= 0 ? "Up" : "Down"} {usd(Math.abs(since))} since {day(v.previous.date)}
+          </p>
+        )}
         <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
           <div>
             <dt className="text-[var(--m-muted)]">What you own</dt>
@@ -137,40 +138,66 @@ function Home({ v }: { v: MoneyView }) {
         </p>
       </section>
 
-      <footer className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--m-muted)]">
-        <p>
+      <p className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--m-muted)]">
+        <span>
           Balances as of {day(v.freshness.balancesAsOf)}. Transactions through {day(v.freshness.transactionsThrough)}.
-        </p>
+        </span>
         <Link href="/details" className="inline-flex items-center gap-1 font-medium text-[var(--m-accent)] active:scale-[0.98]">
-          Details <ArrowRight size={16} strokeWidth={2} />
+          Spending details <ArrowRight size={16} strokeWidth={2} />
         </Link>
-      </footer>
-    </div>
+      </p>
+    </>
   );
 }
 
-export default async function Page() {
-  let view: MoneyView | null = null;
-  let error: string | null = null;
+async function settle<T>(p: Promise<T>): Promise<{ data: T | null; error: string | null }> {
   try {
-    view = await getMoneyView();
+    return { data: await p, error: null };
   } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
+    return { data: null, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+export default async function Page() {
+  const now = new Date();
+  const [money, hq] = await Promise.all([settle(getMoneyView(now)), settle<Hq>(getHq())]);
 
   return (
     <div className={`money min-h-[100dvh] ${outfit.className}`}>
-      {view ? (
-        <Home v={view} />
-      ) : (
-        <div className="mx-auto max-w-xl px-4 pt-16">
-          <div className="money-card p-6">
-            <h1 className="text-lg font-semibold">Couldn&apos;t load your numbers</h1>
-            <p className="mt-2 text-sm text-[var(--m-muted)]">The bank data didn&apos;t come through. Nothing is wrong with your accounts. Try again in a minute.</p>
-            <p className="mt-3 font-mono text-xs text-[var(--m-muted)]">{error}</p>
+      <div className="mx-auto max-w-xl px-4 pb-16 pt-8 md:max-w-3xl">
+        <header className="flex items-end justify-between">
+          <div>
+            <p className="text-sm text-[var(--m-muted)]">Where you stand</p>
+            <h1 className="text-xl font-semibold">Terry HQ</h1>
           </div>
+          <p className="text-sm text-[var(--m-muted)]">
+            {now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "America/New_York" })}
+          </p>
+        </header>
+
+        <nav className="sticky top-0 z-10 -mx-4 mb-4 mt-4 flex gap-2 px-4 py-3 text-sm backdrop-blur" style={{ background: "color-mix(in srgb, var(--m-bg) 85%, transparent)" }}>
+          {[["#money", "Money"], ["#today", "Today"], ["#ventures", "Ventures"]].map(([href, label]) => (
+            <a key={href} href={href} className="money-card rounded-full px-4 py-1.5 font-medium active:scale-[0.98]">
+              {label}
+            </a>
+          ))}
+        </nav>
+
+        <div id="money" className="scroll-mt-20">
+          {money.data ? (
+            <MoneySection v={money.data} />
+          ) : (
+            <div className="money-card p-6">
+              <h2 className="text-lg font-semibold">Couldn&apos;t load your numbers</h2>
+              <p className="mt-2 text-sm text-[var(--m-muted)]">The bank data didn&apos;t come through. Nothing is wrong with your accounts. Try again in a minute.</p>
+              <p className="mt-3 font-mono text-xs text-[var(--m-muted)]">{money.error}</p>
+            </div>
+          )}
         </div>
-      )}
+
+        <HqSections hq={hq.data} now={now} />
+        {hq.error && <p className="mt-4 text-xs text-[var(--m-muted)]">Today and Ventures failed to load: {hq.error}</p>}
+      </div>
     </div>
   );
 }

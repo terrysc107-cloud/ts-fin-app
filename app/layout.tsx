@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Cottonstone Command Center",
-  description: "North Star OS — Personal Financial Intelligence Dashboard",
+  title: "Terry HQ",
+  description: "Money, today, and ventures in one place",
 };
 
 export default function RootLayout({
