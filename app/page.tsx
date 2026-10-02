@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Outfit } from "next/font/google";
 import { ArrowRight, CreditCard, Landmark, Wallet, CalendarDays, House } from "lucide-react";
-import { getMoneyView, type MoneyView } from "@/lib/finance";
+import { getMoneyView, getBudgetView, type MoneyView, type BudgetView } from "@/lib/finance";
 import { getHq, type Hq } from "@/lib/hq";
 import { NetWorthTrend } from "@/components/money/NetWorthTrend";
 import { HqSections } from "@/components/money/HqSections";
 import { ConnectBank } from "@/components/money/ConnectBank";
+import { BudgetSection } from "@/components/money/Budget";
 
 export const dynamic = "force-dynamic";
 
@@ -163,7 +164,8 @@ async function settle<T>(p: Promise<T>): Promise<{ data: T | null; error: string
 
 export default async function Page() {
   const now = new Date();
-  const [money, hq] = await Promise.all([settle(getMoneyView(now)), settle<Hq>(getHq())]);
+  const [money, budget, hq] = await Promise.all([settle(getMoneyView(now)), settle<BudgetView>(getBudgetView(now)), settle<Hq>(getHq())]);
+  const monthLabel = now.toLocaleDateString("en-US", { month: "long", timeZone: "America/New_York" });
 
   return (
     <div className={`money min-h-[100dvh] ${outfit.className}`}>
@@ -179,12 +181,20 @@ export default async function Page() {
         </header>
 
         <nav className="sticky top-0 z-10 -mx-4 mb-4 mt-4 flex gap-2 px-4 py-3 text-sm backdrop-blur" style={{ background: "color-mix(in srgb, var(--m-bg) 85%, transparent)" }}>
-          {[["#money", "Money"], ["#today", "Today"], ["#ventures", "Ventures"]].map(([href, label]) => (
+          {[["#budget", "Budget"], ["#money", "Money"], ["#today", "Today"], ["#ventures", "Ventures"]].map(([href, label]) => (
             <a key={href} href={href} className="money-card rounded-full px-4 py-1.5 font-medium active:scale-[0.98]">
               {label}
             </a>
           ))}
         </nav>
+
+        <div id="budget" className="mb-4 scroll-mt-20">
+          {budget.data ? (
+            <BudgetSection b={budget.data} monthLabel={monthLabel} />
+          ) : (
+            <p className="money-card p-5 text-sm text-[var(--m-muted)]">Budget didn&apos;t load: {budget.error}</p>
+          )}
+        </div>
 
         <div id="money" className="scroll-mt-20">
           {money.data ? (
