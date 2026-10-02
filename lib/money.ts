@@ -82,6 +82,19 @@ export function summarizeAccounts(accounts: Account[]) {
   };
 }
 
+/** A manual_accounts row in Plaid's account shape, so summarizeAccounts treats it like a linked account. */
+export function manualAsAccount(m: { id: string; name: string; kind: string; balance: number | string; limit_balance: number | string | null; updated_at: string }): Account {
+  const shape: Record<string, [string, string]> = {
+    credit: ["credit", "credit card"],
+    loan: ["loan", "other"],
+    cash: ["depository", "checking"],
+    crypto: ["investment", "crypto"],
+    other: ["other", "other"],
+  };
+  const [account_type, account_subtype] = shape[m.kind] ?? shape.other;
+  return { account_id: `manual:${m.id}`, account_name: m.name, mask: null, account_type, account_subtype, current_balance: m.balance, limit_balance: m.limit_balance, last_updated: m.updated_at };
+}
+
 export function isSpend(r: SpendRow) {
   return (
     r.flags?.direction === "outflow" &&
@@ -133,15 +146,19 @@ export async function computeMoneyView(sb: SupabaseClient<any, any, any>, now = 
   const yesterday = addDays(today, -1);
   const fetchFrom = iso(new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth() - 1, 1)));
 
-  const [accountsRes, propsRes, manualRes, snapsRes, latestTxRes, itemsRes] = await Promise.all([
+  const [accountsRes, propsRes, manualRes, snapsRes, latestTxRes, itemsRes, handRes] = await Promise.all([
     sb.from("plaid_accounts").select("account_id,account_name,mask,account_type,account_subtype,current_balance,limit_balance,last_updated"),
     sb.from("properties").select("address,current_value,debt_balance,debt_in_plaid,last_updated").eq("client_id", CLIENT_ID),
     sb.from("investment_accounts").select("account_name,current_balance,in_plaid").eq("client_id", CLIENT_ID),
     sb.from("net_worth_snapshots").select("snapshot_date,net_worth,cash_available,total_debt").eq("client_id", CLIENT_ID).order("snapshot_date"),
     sb.from("transactions").select("date").order("date", { ascending: false }).limit(1),
     sb.from("plaid_tokens").select("item_id", { count: "exact", head: true }),
+    // Hand-entered accounts (Citi, Apple Card, PFCU 6450). Once Plaid links one, plaid_account_id is set and it drops out here.
+    sb.from("manual_accounts").select("id,name,kind,entity,balance,limit_balance,updated_at").is("plaid_account_id", null),
   ]);
   for (const r of [accountsRes, propsRes, manualRes, snapsRes, latestTxRes, itemsRes]) if (r.error) throw new Error(r.error.message);
+  // manual_accounts may not exist yet (migration pending): treat as none.
+  const hand = (handRes.error ? [] : handRes.data ?? []) as { id: string; name: string; kind: string; entity: string; balance: number | string; limit_balance: number | string | null; updated_at: string }[];
 
   // Spend rows: page past PostgREST's 1000-row cap.
   const rows: SpendRow[] = [];
@@ -161,7 +178,7 @@ export async function computeMoneyView(sb: SupabaseClient<any, any, any>, now = 
   const all = accountsRes.data as Account[];
   const dupIds = duplicateAccountIds(all);
   const accounts = all.filter((a) => !dupIds.has(a.account_id));
-  const s = summarizeAccounts(accounts);
+  const s = summarizeAccounts([...accounts, ...hand.map(manualAsAccount)]);
 
   const properties = propsRes.data ?? [];
   const realEstateValue = properties.reduce((t, p) => t + num(p.current_value), 0);
@@ -207,6 +224,7 @@ export async function computeMoneyView(sb: SupabaseClient<any, any, any>, now = 
       transactionsThrough: (latestTxRes.data?.[0]?.date as string) ?? null,
       propertyValuesAsOf,
     },
+    manualAccounts: hand.map((m) => ({ ...m, balance: num(m.balance), limit_balance: m.limit_balance === null ? null : num(m.limit_balance) })),
     duplicateAccountsHidden: dupIds.size,
     linkedBanks: itemsRes.count ?? 0,
     accountNames: accounts.map((a) => `${a.account_name ?? "Account"}${a.mask ? ` •${a.mask}` : ""}`).sort(),

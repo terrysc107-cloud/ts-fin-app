@@ -12,6 +12,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { computeMoneyView, snapshotRow } from "../lib/money.ts";
+import { applyRules } from "../lib/tags.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const HOME = homedir();
@@ -37,6 +38,24 @@ async function money() {
     if (error) throw new Error(error.message);
   }
   return { netWorth: v.netWorth, date: row.snapshot_date };
+}
+
+/** Apply Terry's "always tag X like this" rules to transactions that have no tag yet. Manual tags win. */
+async function tags() {
+  const since = new Date(Date.now() - 45 * 86_400_000).toISOString().slice(0, 10);
+  const [rulesRes, txRes] = await Promise.all([
+    sb.from("tag_rules").select("id,pattern,entity,domain_tag,budget_key,property_id").order("created_at"),
+    sb.from("transactions_tagged").select("id,merchant_name,name").eq("overridden", false).gte("date", since).limit(10000),
+  ]);
+  for (const r of [rulesRes, txRes]) if (r.error) throw new Error(r.error.message);
+  const rows = applyRules(rulesRes.data, txRes.data);
+  if (!DRY) {
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error } = await sb.from("transaction_overrides").upsert(rows.slice(i, i + 500), { onConflict: "public_transaction_id", ignoreDuplicates: true });
+      if (error) throw new Error(error.message);
+    }
+  }
+  return { rules: rulesRes.data.length, tagged: rows.length };
 }
 
 function hermesJobs() {
@@ -116,7 +135,7 @@ async function put(key, fn) {
     payload = { ok: false, error: String(e?.message ?? e) };
   }
   if (DRY) console.log(key, JSON.stringify(payload).slice(0, 400));
-  else if (key !== "money") {
+  else if (key !== "money" && key !== "tags") {
     const { error } = await sb.from("hq_status").upsert({ key, payload, updated_at: new Date().toISOString() });
     if (error) payload = { ok: false, error: error.message };
   }
@@ -124,5 +143,5 @@ async function put(key, fn) {
   return payload.ok;
 }
 
-const results = [await put("money", money), await put("today", today), await put("ventures", ventures)];
+const results = [await put("money", money), await put("tags", tags), await put("today", today), await put("ventures", ventures)];
 process.exit(results.every(Boolean) ? 0 : 1);

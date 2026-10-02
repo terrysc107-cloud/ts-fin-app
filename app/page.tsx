@@ -7,6 +7,7 @@ import { NetWorthTrend } from "@/components/money/NetWorthTrend";
 import { HqSections } from "@/components/money/HqSections";
 import { ConnectBank } from "@/components/money/ConnectBank";
 import { BudgetSection } from "@/components/money/Budget";
+import { AppNav } from "@/components/AppNav";
 
 export const dynamic = "force-dynamic";
 
@@ -180,9 +181,10 @@ export default async function Page() {
           </p>
         </header>
 
-        <nav className="sticky top-0 z-10 -mx-4 mb-4 mt-4 flex gap-2 px-4 py-3 text-sm backdrop-blur" style={{ background: "color-mix(in srgb, var(--m-bg) 85%, transparent)" }}>
+        <AppNav current="/" />
+        <nav className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 text-xs text-[var(--m-muted)] [scrollbar-width:none]" aria-label="On this page">
           {[["#budget", "Budget"], ["#money", "Money"], ["#today", "Today"], ["#ventures", "Ventures"]].map(([href, label]) => (
-            <a key={href} href={href} className="money-card rounded-full px-4 py-1.5 font-medium active:scale-[0.98]">
+            <a key={href} href={href} className="shrink-0 rounded-full border border-[var(--m-line)] px-3 py-1 active:scale-[0.98]">
               {label}
             </a>
           ))}
